@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FAQ Chatbot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        /* Chatbot icon without visible button background */
+        .chatbot-icon {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 70px;
+            height: 70px;
+            background: url('/static/images/logo-icon.png') no-repeat center center;
+            background-size: contain;
+            background-color: transparent; /* Ensure the background is transparent */
+            border: none; /* Remove any borders */
+            padding: 0; /* Remove padding */
+            cursor: pointer; /* Keep the pointer for interactivity */
+            animation: float 3s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: transform 0.5s, opacity 0.5s;
+        }
+
+        /* Floating animation for the icon */
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-10px);
+                opacity: 0.9;
+            }
+        }
+
+        /* Scale and fade-in animation */
+        .chat-window.open {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .chat-window {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            max-width: 90%;
+            background-color: #fff;
+            border-radius: 20px 20px 10px 20px; /* Rounded corners with a slight tail */
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            z-index: 1000;
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        /* Create the speech bubble tail using ::after */
+        .chat-window::after {
+            content: '';
+            position: absolute;
+            bottom: -20px; /* Position the tail */
+            right: 30px; /* Horizontal position of the tail */
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 20px solid #fff; /* Color matches the chat window */
+        }
+
+        /* Chatbox styling */
+        .chatbox {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: #f1f1f1;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .user {
+            color: #007BFF;
+            margin: 5px 0;
+        }
+
+        .bot {
+            color: #28A745;
+            margin: 5px 0;
+        }
+
+        .input-area {
+            position: relative; /* Set relative positioning */
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* Space between input and button */
+        }
+
+        .input-area input[type="text"] {
+            flex-grow: 2; /* Allow the input to take up more space compared to the button */
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px; /* Rounded corners */
+            font-size: 14px;
+            margin-right: 0;
+            min-width: 250px; /* Set a minimum width for the input */
+            box-sizing: border-box; /* Include padding and border in the element's width */
+        }
+
+        .input-area button[type="submit"] {
+            width: 50px;
+            padding: 10px 0; /* Match the padding of the input field */
+            background-color: #375163;
+            color: white;
+            border: none;
+            border-radius: 5px; /* Rounded corners */
+            margin-left: 0; /* No margin */
+            cursor: pointer;
+            font-size: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .input-area button[type="submit"]:disabled {
+            background-color: #f1f1f1;
+            color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .input-area button[type="submit"].active {
+            background-color: #375163; /* Active color when input is detected */
+            color: white;
+        }
+
+        .input-area button[type="submit"]:hover:not(:disabled) {
+            background-color: #375163;
+        }
+
+        /* Close button styling */
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #aaa;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        /* Styles for rendered HTML content */
+        .bot strong {
+            font-weight: 700;
+        }
+
+        .bot ul {
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
+        .bot li {
+            margin-bottom: 5px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 400px) {
+            .chat-window {
+                width: 90%;
+                right: 5%;
+            }
+
+            .chat-window::after {
+                right: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Chatbot Icon -->
+    <div class="chatbot-icon" id="chatbot-icon"></div>
+
+    <!-- Chat Window -->
+    <div class="chat-window" id="chat-window">
+        <div class="chatbox">
+            <span class="close-btn" id="close-btn">&times;</span>
+            <div class="messages" id="chat-messages"></div>
+            <div class="input-area">
+                <form id="chat-form">
+                    <input type="text" id="user-input" placeholder="Type your question here..." autocomplete="off" required />
+                    <button type="submit" id="send-button" disabled>&#10148;</button> <!-- Use an emoji or Unicode character -->
+                </form>
+            </div>            
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const chatbotIcon = document.getElementById('chatbot-icon');
+        const chatWindow = document.getElementById('chat-window');
+        const closeBtn = document.getElementById('close-btn');
+
+        // Existing JavaScript code for handling messages
+        const form = document.getElementById('chat-form');
+        const messages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button'); // Get the send button
+
+        // Disable the send button initially
+        sendButton.disabled = true;
+
+        // Add event listener to input field to enable send button
+        userInput.addEventListener('input', function() {
+            if (userInput.value.trim() !== '') {
+                sendButton.disabled = false;
+                sendButton.classList.add('active');
+            } else {
+                sendButton.disabled = true;
+                sendButton.classList.remove('active');
+            }
+        });
+
+        // Handle click on chatbot icon
+        chatbotIcon.addEventListener('click', () => {
+            // Hide the chatbot icon immediately
+            chatbotIcon.classList.add('hidden');
+
+            // Show the chat window
+            chatWindow.style.display = 'block';
+
+            // Trigger the open animation
+            setTimeout(() => {
+                chatWindow.classList.add('open');
+            }, 10);
+        });
+
+        // Handle click on close button
+        closeBtn.addEventListener('click', () => {
+            // Start the close animation
+            chatWindow.classList.remove('open');
+
+            // Wait for the animation to finish
+            setTimeout(() => {
+                chatWindow.style.display = 'none';
+
+                // Show the chatbot icon with slide-up animation
+                chatbotIcon.classList.remove('hidden');
+                chatbotIcon.classList.add('showing');
+
+                // Remove the 'showing' class after animation completes
+                setTimeout(() => {
+                    chatbotIcon.classList.remove('showing');
+                }, 300); // Duration matches the slideUp animation
+            }, 300); // Duration matches the transform transition
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const question = userInput.value.trim();
+            if (question === '') return;
+            appendMessage('You', question, 'user');
+            fetch('/get_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question })
+            })
+            .then(response => response.json())
+            .then(data => {
+                appendMessage('Chatbot', data.answer, 'bot', true); // Pass 'true' to indicate HTML content
+            })
+            .catch(error => {
+                appendMessage('Chatbot', 'Sorry, something went wrong.', 'bot', false);
+                console.error('Error:', error);
+            });
+            userInput.value = '';
+            sendButton.disabled = true;
+            sendButton.classList.remove('active');
+        });
+
+        function appendMessage(sender, text, className, isHTML = false) {
+            const message = document.createElement('p');
+            message.classList.add(className);
+            if (isHTML) {
+                message.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            } else {
+                message.textContent = `${sender}: ${text}`;
+            }
+            messages.appendChild(message);
+            messages.scrollTop = messages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
